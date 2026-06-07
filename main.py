@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QStackedWidget, QSpinBox, QComboBox,
     QGraphicsScene, QGraphicsView, QGraphicsProxyWidget, QScrollArea,
-    QLineEdit, QGraphicsDropShadowEffect, QMessageBox
+    QLineEdit, QMessageBox
 )
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtSignal, QObject, QTimer, pyqtProperty
 from PyQt6.QtGui import QFont, QTransform, QColor, QKeyEvent, QPalette, QPainter
@@ -222,12 +222,10 @@ class FlippedCard(QWidget):
             }
         """)
 
-        # Effetto ombra
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(25)
-        shadow.setColor(QColor(0, 0, 0, 120))
-        shadow.setOffset(0, 10)
-        self.setGraphicsEffect(shadow)
+        # NB: NIENTE QGraphicsDropShadowEffect qui. Questa carta viene incorporata
+        # in una QGraphicsScene tramite addWidget() (QGraphicsProxyWidget) e in Qt
+        # un QGraphicsEffect su un widget proxato ne impedisce del tutto il disegno
+        # (la carta diventa invisibile). La definizione e' data dal bordo.
 
     @pyqtProperty(float)
     def angle(self) -> float:
