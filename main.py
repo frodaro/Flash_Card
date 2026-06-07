@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
     QLineEdit, QGraphicsDropShadowEffect, QMessageBox
 )
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtSignal, QObject, QTimer, pyqtProperty
-from PyQt6.QtGui import QFont, QTransform, QColor, QKeyEvent, QPalette
+from PyQt6.QtGui import QFont, QTransform, QColor, QKeyEvent, QPalette, QPainter
 
 # --- Costanti ---
 DEFAULT_WORDS = [
@@ -648,7 +648,7 @@ class GameWindow(QMainWindow):
         self.view.setStyleSheet("background: transparent; border: 1px solid #334155;")  # Bordino per debug
         self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.view.setRenderHint(QGraphicsView.RenderHint.SmoothPixmapTransform)  # Miglioramento grafico
+        self.view.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)  # Miglioramento grafico
 
         # Widget della carta
         self.card_widget = FlippedCard()
