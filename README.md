@@ -1,18 +1,24 @@
-# 🎓 Flashcard Tedesco
+# 🎓 Flashcard Tedesco 3D
 
-Un programma interattivo per insegnare il tedesco ai bambini attraverso flashcard con audio.
+Un programma interattivo per insegnare il tedesco ai bambini attraverso flashcard
+**3D animate** con audio. Interfaccia desktop multi-giocatore con turni, punteggi e
+classifica finale.
 
 ## 📋 Requisiti
 
 - Python 3.7+
-- gtts (Google Text-to-Speech - per la sintesi vocale online)
-- tkinter (solitamente incluso con Python)
-- Connessione internet (per il download dell'audio la prima volta)
+- [PyQt6](https://pypi.org/project/PyQt6/) — interfaccia grafica
+- [gTTS](https://pypi.org/project/gTTS/) — Google Text-to-Speech (sintesi vocale online)
+- Connessione internet (solo per il primo download dell'audio di ogni parola)
+
+> L'audio viene riprodotto con i player nativi del sistema operativo:
+> **Windows** (`winmm`), **macOS** (`afplay`), **Linux** (`aplay`/`paplay`).
 
 ## 🚀 Installazione
 
 1. Apri il terminale nella cartella del progetto
 2. Installa le dipendenze:
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -21,75 +27,96 @@ pip install -r requirements.txt
 
 Il programma usa **Google Text-to-Speech** tramite le **API pubbliche di Google**:
 
-1. Quando clicchi il pulsante 🔊, il testo viene inviato ai server Google
+1. Quando clicchi **🔊 Ascolta**, il testo viene inviato ai server Google
 2. Google genera un file audio MP3 con pronuncia naturale
-3. Il file viene **salvato in cache** nella cartella `audio_cache/`
-4. Dalle volte successive, il programma usa il file cache (senza scaricare di nuovo)
+3. Il file viene **salvato in cache** nella cartella `audio_cache/` (creata in automatico)
+4. Dalle volte successive il programma usa il file in cache (nessun nuovo download)
 
 **Vantaggi:**
 - ✅ Pronuncia naturale e accurata
 - ✅ Supporto per 100+ lingue
-- ✅ Nessuna voce robotica
 - ✅ Nessuna configurazione richiesta (no chiavi API)
-- ✅ Caching automatico (offline dopo il primo uso)
+- ✅ Caching automatico (offline dopo il primo uso di ogni parola)
+
+> La cartella `audio_cache/` è generata a runtime e **non** è inclusa nel repository.
 
 ## 📖 Come Usare
 
 1. Esegui il programma:
+
 ```bash
 python main.py
 ```
 
-2. **Schermata iniziale**: Seleziona il numero di giocatori
-3. **Inserisci nomi**: Dai un nome a ogni giocatore e scegli un'icona simpatica (emoji)
+2. **Schermata iniziale**: scegli il numero di giocatori, la **difficoltà**
+   (Facile / Medio / Difficile) ed eventualmente attiva il **timer**.
+3. **Nomi e icone**: dai un nome a ogni giocatore e scegli un'emoji.
 4. **Gioca**:
-   - Clicca sulla **flashcard** per farla girare e vedere la traduzione
-   - Clicca sul pulsante **🔊 Ascolta** per sentire la pronuncia
-   - Clicca **✅ GIUSTO** o **❌ SBAGLIATO** per passare alla prossima parola
-   - I giocatori si alternano ad ogni parola
-5. **Fine gioco**: Vedi la classifica finale con i punteggi
+   - Clicca sulla **carta** (o premi `Spazio`) per girarla con l'animazione 3D
+     e vedere la traduzione tedesca
+   - Clicca **🔊 Ascolta** (o premi `A`) per sentire la pronuncia
+   - Clicca **✅ GIUSTO** / **❌ SBAGLIATO** (o usa le frecce `→` / `←`)
+     per passare alla parola successiva
+   - I giocatori si alternano a ogni parola
+5. **Fine gioco**: classifica finale con medaglie 🥇🥈🥉; puoi rigiocare o tornare al menu.
+
+### ⌨️ Scorciatoie da tastiera
+
+| Tasto | Azione |
+|-------|--------|
+| `Spazio` | Gira la carta (flip 3D) |
+| `→` | Risposta corretta |
+| `←` | Risposta sbagliata |
+| `A` | Riproduci l'audio |
 
 ## 📚 Aggiungere Nuove Parole
 
-Apri il file `data/words.txt` e aggiungi nuove parole nel formato:
+Apri il file `data/words.txt` e aggiungi una parola per riga nel formato
+`Italiano|Tedesco` (la categoria è opzionale):
 
 ```
-Italiano|Tedesco
 Gatto|Katze
 Cane|Hund
+Mela|Apfel|Cibo
 ```
 
-Ogni riga deve contenere una parola in italiano e la relativa traduzione tedesca, separate da `|`.
+- I primi due campi (`Italiano|Tedesco`) sono obbligatori.
+- Il terzo campo opzionale è la **categoria** (default: `Generale`).
 
 ## ⚙️ Personalizzazione
 
-- Puoi cambiare il numero di emoji disponibili modificando la lista `self.emojis` in main.py
-- Puoi modificare le dimensioni e i colori dei pulsanti
-- Puoi aggiungere più file di parole (creare sottocartelle in data/)
+- Le emoji disponibili sono nella lista `emojis` in `main.py` (`_init_names_ui`)
+- Difficoltà: filtra le parole per lunghezza (Facile ≤ 6 lettere, Difficile ≥ 5)
+- Timer: configurabile tramite `GameSettings.timer_seconds`
+- Colori, dimensioni e animazioni sono regolabili dalle costanti in cima a `main.py`
+  (`CARD_SIZE`, `ANIMATION_DURATION`, `PERSPECTIVE_SHEAR_FACTOR`, …)
 
 ## 🎯 Funzionalità
 
-✅ Supporto multi-giocatore con turni  
-✅ Scelta di icone personalizzate per ogni giocatore  
-✅ Flashcard interattive con effetto flip  
-✅ Audio text-to-speech in italiano e tedesco  
-✅ Tracciamento dei punteggi in tempo reale  
-✅ Classifica finale con medaglie  
-✅ Gestione dinamica delle parole da file esterno  
+✅ Supporto multi-giocatore con turni
+✅ Scelta di nome e icona per ogni giocatore
+✅ Flashcard **3D** con animazione di flip e prospettiva
+✅ Audio text-to-speech in italiano e tedesco (cross-platform)
+✅ Difficoltà selezionabile e timer opzionale
+✅ Tracciamento dei punteggi in tempo reale
+✅ Classifica finale con medaglie
+✅ Gestione dinamica delle parole da file esterno
 
 ## 🐛 Risoluzione Problemi
 
-**Problema**: Il suono non funziona
-- Soluzione 1: Controlla che tu abbia **connessione internet** (necessaria per il primo download)
-- Soluzione 2: Assicurati che **gtts sia installato** correttamente: `pip install gtts`
-- Soluzione 3: Verifica che gli altoparlanti siano accesi
+**Problema**: `ModuleNotFoundError: No module named 'PyQt6'`
+- Soluzione: installa le dipendenze con `pip install -r requirements.txt`
 
-**Problema**: Errore "Impossibile scaricare audio"
-- Soluzione: Potrebbe essere un problema di connessione o firewall. Riprova con connessione stabile
+**Problema**: il suono non funziona
+- Controlla di avere **connessione internet** (necessaria al primo download)
+- Assicurati che **gTTS** sia installato: `pip install gtts`
+- Verifica che gli altoparlanti siano accesi
+- Su Linux potrebbe servire `alsa-utils` (`aplay`) o `pulseaudio-utils` (`paplay`)
 
-**Problema**: Errore "FileNotFoundError"
-- Soluzione: Assicurati che la cartella `data` esista e contenga il file `words.txt`
+**Problema**: errore "Impossibile scaricare audio"
+- Possibile problema di connessione o firewall: riprova con una connessione stabile
 
 ## 📝 Note
 
-Il programma shuffla (mescola) le parole all'avvio, quindi ogni partita avrà un ordine diverso.
+Il programma mescola (shuffle) le parole a ogni partita, quindi l'ordine cambia
+ogni volta.

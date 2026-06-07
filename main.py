@@ -88,6 +88,7 @@ class GameSettings:
 class AudioSignal(QObject):
     audio_finished = pyqtSignal()
     audio_error = pyqtSignal(str)
+    audio_done = pyqtSignal()  # emesso sempre a fine riproduzione (thread-safe)
 
 # --- Audio Player (Cross-Platform) ---
 class AudioPlayer:
@@ -107,6 +108,7 @@ class AudioPlayer:
             return
 
         self.is_speaking = True
+        # La disabilitazione avviene sul thread GUI (chiamante): è sicura.
         button_to_disable.setEnabled(False)
 
         if self.current_thread and self.current_thread.is_alive():
@@ -114,12 +116,12 @@ class AudioPlayer:
 
         self.current_thread = threading.Thread(
             target=self._play,
-            args=(text, lang, button_to_disable),
+            args=(text, lang),
             daemon=True
         )
         self.current_thread.start()
 
-    def _play(self, text: str, lang: str, button: QPushButton) -> None:
+    def _play(self, text: str, lang: str) -> None:
         """Riproduce l'audio in un thread separato."""
         try:
             safe_word = "".join(
@@ -146,7 +148,9 @@ class AudioPlayer:
             self.signal.audio_error.emit(str(e))
         finally:
             self.is_speaking = False
-            button.setEnabled(True)
+            # La riabilitazione del bottone va fatta sul thread GUI: si delega
+            # tramite segnale invece di toccare il widget da questo thread.
+            self.signal.audio_done.emit()
 
     def _play_windows(self, cache_file: Path) -> None:
         """Riproduzione audio su Windows usando winmm."""
@@ -266,14 +270,17 @@ class GameWindow(QMainWindow):
         self.setWindowTitle("Flashcard Tedesco 3D 🇩🇪🇮🇹")
         self.resize(1000, 800)
 
-        # Inizializza game_widget a None per evitare errori in keyPressEvent
+        # Inizializza i widget a None per evitare errori e gestire la rimozione
         self.game_widget = None
+        self.names_widget = None
+        self.end_widget = None
 
         # Imposta lo stile globale
         self._setup_global_style()
 
         # Variabili di stato
         self.words: List[Word] = []
+        self.all_words: List[Word] = []  # elenco completo immutato (sorgente del filtro)
         self.players: List[Player] = []
         self.current_player_idx = 0
         self.current_word_idx = 0
@@ -286,6 +293,7 @@ class GameWindow(QMainWindow):
         self.audio = AudioPlayer()
         self.audio.signal.audio_finished.connect(self._on_audio_finished)
         self.audio.signal.audio_error.connect(self._on_audio_error)
+        self.audio.signal.audio_done.connect(self._on_audio_done)
 
         # Interfaccia
         self.stacked_widget = QStackedWidget()
@@ -369,8 +377,9 @@ class GameWindow(QMainWindow):
             except Exception as e:
                 logger.error(f"Errore caricamento categorie: {e}")
 
-        # Mescola le parole
+        # Mescola le parole e conserva l'elenco completo come sorgente del filtro
         random.shuffle(self.words)
+        self.all_words = list(self.words)
 
     def _save_default_words(self) -> None:
         """Salva le parole predefinite nel file."""
@@ -471,7 +480,13 @@ class GameWindow(QMainWindow):
         self.settings.num_players = self.spin_players.value()
         self.settings.difficulty = Difficulty(self.combo_difficulty.currentText())
 
+        # Rimuovi l'eventuale schermata nomi precedente per non accumularla nello stack
+        if self.names_widget is not None:
+            self.stacked_widget.removeWidget(self.names_widget)
+            self.names_widget.deleteLater()
+
         names_widget = QWidget()
+        self.names_widget = names_widget
         main_layout = QVBoxLayout(names_widget)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.setSpacing(20)
@@ -558,13 +573,28 @@ class GameWindow(QMainWindow):
         # Filtra le parole in base alla difficoltà e alle categorie
         self._filter_words()
 
+        # Evita di avviare una partita senza parole (es. filtro troppo restrittivo)
+        if not self.words:
+            QMessageBox.warning(
+                self,
+                "Nessuna parola",
+                "Nessuna parola corrisponde ai filtri selezionati.\n"
+                "Prova a cambiare difficoltà o categoria.",
+            )
+            self.stacked_widget.setCurrentIndex(0)
+            return
+
         # Inizializza l'interfaccia di gioco
         self._init_game_ui()
 
     def _filter_words(self) -> None:
-        """Filtra le parole in base alla difficoltà e alle categorie selezionate."""
+        """Filtra le parole in base alla difficoltà e alle categorie selezionate.
+
+        Parte sempre dall'elenco completo `self.all_words` per non perdere parole
+        tra una partita e l'altra (il filtro non è più distruttivo).
+        """
         filtered_words = []
-        for word in self.words:
+        for word in self.all_words:
             # Filtro per difficoltà (esempio: parole corte = facile)
             if self.settings.difficulty == Difficulty.EASY and len(word.it) > 6:
                 continue
@@ -584,6 +614,11 @@ class GameWindow(QMainWindow):
 
     def _init_game_ui(self) -> None:
         """Inizializza l'interfaccia di gioco."""
+        # Rimuovi l'eventuale schermata di gioco precedente (es. dopo un riavvio)
+        if self.game_widget is not None:
+            self.stacked_widget.removeWidget(self.game_widget)
+            self.game_widget.deleteLater()
+
         self.game_widget = QWidget()
         layout = QVBoxLayout(self.game_widget)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -793,6 +828,11 @@ class GameWindow(QMainWindow):
         """Callback quando l'audio finisce."""
         logger.info("Riproduzione audio completata")
 
+    def _on_audio_done(self) -> None:
+        """Riabilita il bottone audio sul thread GUI (chiamato sempre)."""
+        if hasattr(self, "btn_audio") and self.btn_audio is not None:
+            self.btn_audio.setEnabled(True)
+
     def _on_audio_error(self, error: str) -> None:
         """Callback in caso di errore audio."""
         logger.error(f"Errore audio: {error}")
@@ -861,7 +901,13 @@ class GameWindow(QMainWindow):
         if self.timer and self.timer.isActive():
             self.timer.stop()
 
+        # Rimuovi l'eventuale schermata di fine gioco precedente
+        if self.end_widget is not None:
+            self.stacked_widget.removeWidget(self.end_widget)
+            self.end_widget.deleteLater()
+
         end_widget = QWidget()
+        self.end_widget = end_widget
         layout = QVBoxLayout(end_widget)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(20)
