@@ -1,6 +1,7 @@
 import sys
 import random
 import os
+import math
 import threading
 import time
 import ctypes
@@ -38,8 +39,8 @@ DEFAULT_WORDS = [
 ]
 
 CARD_SIZE = (400, 280)
-ANIMATION_DURATION = 550  # ms
-PERSPECTIVE_SHEAR_FACTOR = 0.12
+ANIMATION_DURATION = 650  # ms
+PERSPECTIVE_DISTANCE = 900.0  # "distanza camera" per la prospettiva 3D (px); piu' basso = piu' marcata
 AUDIO_CACHE_DIR = "audio_cache"
 DATA_DIR = "data"
 WORDS_FILE = Path(DATA_DIR) / "words.txt"
@@ -652,6 +653,7 @@ class GameWindow(QMainWindow):
         self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.view.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)  # Miglioramento grafico
+        self.view.setRenderHint(QPainter.RenderHint.Antialiasing)  # Bordi piu' morbidi durante il flip
 
         # Widget della carta
         self.card_widget = FlippedCard()
@@ -767,22 +769,43 @@ class GameWindow(QMainWindow):
             self._handle_answer(False)  # Tempo scaduto = sbagliato
 
     def _apply_perspective_transform(self, angle: float) -> None:
-        """Applica la trasformazione 3D con prospettiva alla carta."""
-        transform = QTransform()
+        """Rotazione 3D con prospettiva reale attorno all'asse Y verticale.
 
-        # Trasla al centro
-        transform.translate(CARD_SIZE[0] / 2, CARD_SIZE[1] / 2)
+        Usa una proiezione prospettica (non un semplice shear): in coordinate
+        centrate sulla carta vale
+            x' = D*cos(t)*x / (D - x*sin(t))      y' = D*y / (D - x*sin(t))
+        dove t e' l'angolo e D la distanza della "camera". Cosi' un lato si
+        avvicina (piu' grande) e l'altro si allontana, dando profondita'.
 
-        # Ruota intorno all'asse Y
-        transform.rotate(angle, Qt.Axis.YAxis)
+        Per la faccia posteriore (angle > 90, lingua DE) il contenuto viene
+        specchiato orizzontalmente: annulla il ribaltamento dovuto alla
+        rotazione di 180 gradi, cosi' a fine flip il testo e' dritto e leggibile.
+        """
+        cx, cy = CARD_SIZE[0] / 2, CARD_SIZE[1] / 2
+        t = math.radians(angle)
+        cos_t, sin_t = math.cos(t), math.sin(t)
+        d = PERSPECTIVE_DISTANCE
 
-        # Applica shear per la prospettiva
-        if angle != 0 and angle != 180:
-            shear_factor = PERSPECTIVE_SHEAR_FACTOR * (abs(angle - 90) / 90.0) * (-1 if angle > 90 else 1)
-            transform.shear(0, shear_factor)
+        # Matrice prospettica in coordinate centrate.
+        # QTransform(m11, m12, m13,  m21, m22, m23,  m31, m32, m33)
+        perspective = QTransform(
+            d * cos_t, 0.0, -sin_t,
+            0.0,       d,   0.0,
+            0.0,       0.0, d,
+        )
 
-        # Trasla indietro
-        transform.translate(-CARD_SIZE[0] / 2, -CARD_SIZE[1] / 2)
+        # Faccia posteriore: specchia il contenuto (scale x = -1) prima della
+        # prospettiva, per evitare il testo riflesso.
+        if angle > 90:
+            mirror = QTransform(-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+            perspective = mirror * perspective
+
+        # Centra -> applica la prospettiva -> riporta in posizione.
+        transform = (
+            QTransform().translate(-cx, -cy)
+            * perspective
+            * QTransform().translate(cx, cy)
+        )
 
         self.proxy.setTransform(transform)
 
