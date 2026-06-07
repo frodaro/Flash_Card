@@ -883,17 +883,31 @@ class GameWindow(QMainWindow):
         self._show_word()
 
     def _show_feedback(self, message: str, color: str) -> None:
-        """Mostra un feedback visivo temporaneo."""
-        feedback = QLabel(message)
+        """Mostra un feedback visivo temporaneo in OVERLAY.
+
+        La label e' figlia diretta di game_widget ma NON viene aggiunta al
+        layout: viene posizionata in modo assoluto e portata in primo piano,
+        cosi' non spinge ne' sposta gli altri elementi (carta, punteggi,
+        pulsanti).
+        """
+        if self.game_widget is None:
+            return
+
+        feedback = QLabel(message, self.game_widget)  # figlio diretto, fuori dal layout
         feedback.setStyleSheet(
             f"color: white; background-color: {color}; "
-            "font-size: 24px; font-weight: bold; padding: 20px; "
-            "border-radius: 10px; margin: 10px;"
+            "font-size: 30px; font-weight: bold; padding: 20px 45px; "
+            "border-radius: 14px; border: 2px solid rgba(255, 255, 255, 0.6);"
         )
         feedback.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        feedback.adjustSize()
 
-        # Aggiungi temporaneamente al layout
-        self.game_widget.layout().insertWidget(0, feedback)
+        # Centra l'overlay sul widget di gioco
+        x = (self.game_widget.width() - feedback.width()) // 2
+        y = (self.game_widget.height() - feedback.height()) // 2
+        feedback.move(max(0, x), max(0, y))
+        feedback.raise_()   # sopra a tutto il resto
+        feedback.show()
 
         # Rimuovi dopo 1 secondo
         QTimer.singleShot(1000, feedback.deleteLater)
