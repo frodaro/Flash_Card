@@ -196,6 +196,11 @@ class FlippedCard(QWidget):
         # Imposta dimensioni fisse
         self.setFixedSize(*CARD_SIZE)
 
+        # IMPORTANTE: una sottoclasse custom di QWidget ignora "background-color"
+        # dello stylesheet finche' non si abilita WA_StyledBackground. Senza,
+        # la carta resta trasparente e il testo scuro diventa invisibile.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
         # Layout e label
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
